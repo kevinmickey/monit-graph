@@ -9,3 +9,5 @@
 ehthumbs.db
 Icon?
 Thumbs.db
+config.php.dev
+*.log

@@ -31,6 +31,11 @@
  * @author Dan Schultzer <http://abcel-online.com/>
  * @copyright Dan Schultzer
  */
+if (gethostname() == "debianServer") {
+    require_once("config.php.dev");
+} else {    
+	$dynamic = false;
+
 
 	/* Monit login information */
 	$server_configs = array(
@@ -76,5 +81,5 @@
 	/* Monit-Graph history handling */
 	$chunk_size = 500*1024; // Maximum size in bytes for each service history chunk (0 equals unlimited, remember to set php.ini so the scripts can handle it as well)
 	$limit_number_of_chunks = 0; // Maximum number of chunks saved per service records, will delete all above this (0 equals unlimited)
-
+}
  ?>

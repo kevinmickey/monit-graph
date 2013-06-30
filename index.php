@@ -34,8 +34,33 @@
 	$current_dirname = dirname(__FILE__)."/";
  	require_once($current_dirname."config.php");
 	require_once($current_dirname."monit-graph.class.php");
+	require_once($current_dirname."KLogger.php");
+	$log = new KLogger($current_dirname."index.log", KLogger::INFO );
+	MonitGraph::setLog($log);
 
-	if(!MonitGraph::checkConfig($server_configs)) die("Fatal error. Check the error log please."); // If configs are not good we quit
+	if($dynamic == false) {
+		if(!MonitGraph::checkConfig($server_configs)) 
+			die("Fatal error. Check the error log please."); // If configs are not good we quit
+	} else {
+		//build dynamic config
+		$server_configs = array();
+		$datadir = $current_dirname."data";
+		$datah = opendir($datadir);
+		while (false !== ($filename = readdir($datah))) {
+			if (is_file($datadir."/".$filename)) {
+				$log->logInfo($filename . ' found');
+
+				if (($server_name = strstr($filename, "-server.xml", true))) {
+//					$server = new array();
+					$log->logInfo($filename . ' match');
+					$server["name"] = $server_name;
+					$server["server_id"] = $server_name;
+					$server_configs[] = $server;
+				}
+			}
+		}
+		sort($server_configs);
+	}
 	
 	ob_start(); // Starting buffering
 	
@@ -85,7 +110,7 @@
 		if(isset($_GET['specific_services'])) $specific_services = (string)$_GET['specific_services'];
 		else $specific_services = $default_specific_service;
 	
-	
+		$dont_show_alerts = $default_dont_show_alerts;
 		/* If to show alerts */
 		if(isset($_GET['dont_show_alerts']) && $_GET['dont_show_alerts']=="on"){
 			$dont_show_alerts = "on";
@@ -109,6 +134,7 @@
 		echo '<a href="?">Back to dashboard</a>';
 		foreach($files as $file){
 			$filename = basename($file);
+			$short_filename = str_replace(".xml", "", $filename);
 	
 			/* The javascript has some logic to parse the JSON, and to keep overhead down */
 			$output_head .= <<<EOF
@@ -157,7 +183,7 @@
 	
 									if(chart$i==null) chart$i = new google.visualization.$chart_type(document.getElementById('chart_div$i'));
 									chart$i.draw(data$i, {
-															title : '$filename',
+															title : '$short_filename',
 															vAxis: {title: "Usage in %", minValue: 0},
 															hAxis: {title: "Time"}
 														});
@@ -171,7 +197,7 @@
 EOF;
 			$output_body .= <<<EOF
 		<div class="bordered_box">
-			<h2><a href="#" onclick="javascript:$('#chart_div$i').toggle('fast');return false;">$filename</a></h2>
+			<h2><a href="#" onclick="javascript:$('#chart_div$i').toggle('fast');return false;">$short_filename</a></h2>
 			<div id="chart_div$i" style="width: 800px; height: 400px; margin:20px;">
 				Loading Chart...
 			</div>
@@ -264,7 +290,7 @@ EOF;
 
 			echo '
 	<div class="server_box bordered_box">
-		<h2>'.$config['name'].' status</h2>';
+		<a href="?server_id='.$config['server_id'].'"><h2 href="?server_id='.$config['server_id'].'">'.$config['name'].' status</h2></a>';
 			if(empty($services)){
 				echo "<span>No log files found</span>";
 			}else{
@@ -294,7 +320,6 @@ EOF;
 				}
 				echo '
 		<div class="actions">
-			<a href="?server_id='.$config['server_id'].'">View all logs for '.$config['name'].'</a>
 			<a href="?delete_data=1&amp;id='.$config['server_id'].'">Delete all data for '.$config['name'].'</a>
 		</div>
 	</div>';
