@@ -51,7 +51,6 @@
 				$log->logInfo($filename . ' found');
 
 				if (($server_name = strstr($filename, "-server.xml", true))) {
-//					$server = new array();
 					$log->logInfo($filename . ' match');
 					$server["name"] = $server_name;
 					$server["server_id"] = $server_name;
@@ -198,7 +197,7 @@ EOF;
 			$output_body .= <<<EOF
 		<div class="bordered_box">
 			<h2><a href="#" onclick="javascript:$('#chart_div$i').toggle('fast');return false;">$short_filename</a></h2>
-			<div id="chart_div$i" style="width: 800px; height: 400px; margin:20px;">
+			<div id="chart_div$i" style="height: 400px; margin:20px;">
 				Loading Chart...
 			</div>
 		</div>
