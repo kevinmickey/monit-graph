@@ -585,7 +585,7 @@ require_once($current_dirname."KLogger.php");
 			$return_array = array();
 			foreach($files as $file){
 				if(!file_exists($file) or !$xml=simplexml_load_string(file_get_contents($file))){
-					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $filename could not be loaded!");
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $file could not be loaded!");
 					return false;
 				}
 				$return_array[]=array(

@@ -197,7 +197,7 @@ EOF;
 			$output_body .= <<<EOF
 		<div class="bordered_box">
 			<h2><a href="#" onclick="javascript:$('#chart_div$i').toggle('fast');return false;">$short_filename</a></h2>
-			<div id="chart_div$i" style="height: 400px; margin:20px;">
+			<div id="chart_div$i" style="height: 400px; margin:5px;">
 				Loading Chart...
 			</div>
 		</div>
@@ -285,44 +285,47 @@ EOF;
 	}else{
 		foreach($server_configs as $config){
 			$services = MonitGraph::getLastRecord($config['server_id']);
-			if(!$services) die("No log files where found. Please run cron first.");
+			if($services)  {
 
-			echo '
-	<div class="server_box bordered_box">
-		<a href="?server_id='.$config['server_id'].'"><h2 href="?server_id='.$config['server_id'].'">'.$config['name'].' status</h2></a>';
-			if(empty($services)){
-				echo "<span>No log files found</span>";
-			}else{
-				echo '<div class="service_header">';
-				echo "<div><strong>Service:</strong></div>";
-				echo "<div><strong>CPU:</strong></div>";
-				echo "<div><strong>Memory:</strong></div>";
-				echo "<div><strong>Swap:</strong></div>";
-				echo "<div><strong>Last check:</strong></div>";
-				echo '<div><strong>Actions</strong></div>';
-				echo '</div>';
-				echo '<div class="clear"></div>';
-				foreach($services as $service){
-					if($service['status']==0) $status_color = "00FF00";
-					else $status_color = "FF0000";
-					if($service['swap']!="") $service['swap'].="%";
-					else $service['swap']="-";
-					echo '<div class="service_row">';
-					echo '<div><span style="color:#'.$status_color.'">●</span> <a href="?server_id='.$config['server_id'].'&amp;specific_services='.urlencode($service['name']).'">'.$service['name']."</a></div>";
-					echo "<div>".$service['cpu']."%</div>";
-					echo "<div>".$service['memory']."%</div>";
-					echo "<div>".$service['swap']."</div>";
-					echo "<div>".date("H:i:s d-m-Y",$service['time'])."</div>";
-					echo '<div><a href="?delete_data='.urlencode($service['name'].".xml").'&amp;id='.$config['server_id'].'">Delete service data</a></div>';
+				echo '
+		<div class="server_box bordered_box">
+			<a href="?server_id='.$config['server_id'].'"><h2 href="?server_id='.$config['server_id'].'">'.$config['name'].' status</h2></a>';
+				if(empty($services)){
+					echo "<span>No log files found</span>";
+				}else{
+					echo '<div class="service_header">';
+					echo "<div><strong>Service:</strong></div>";
+					echo "<div><strong>CPU:</strong></div>";
+					echo "<div><strong>Memory:</strong></div>";
+					echo "<div><strong>Swap:</strong></div>";
+					echo "<div><strong>Last check:</strong></div>";
+					echo '<div><strong>Actions</strong></div>';
 					echo '</div>';
 					echo '<div class="clear"></div>';
+					foreach($services as $service){
+						if($service['status']==0) $status_color = "00FF00";
+						else $status_color = "FF0000";
+						if($service['swap']!="") $service['swap'].="%";
+						else $service['swap']="-";
+						echo '<div class="service_row">';
+						echo '<div><span style="color:#'.$status_color.'">●</span> <a href="?server_id='.$config['server_id'].'&amp;specific_services='.urlencode($service['name']).'">'.$service['name']."</a></div>";
+						echo "<div>".$service['cpu']."%</div>";
+						echo "<div>".$service['memory']."%</div>";
+						echo "<div>".$service['swap']."</div>";
+						echo "<div>".date("H:i:s d-m-Y",$service['time'])."</div>";
+						echo '<div><a href="?delete_data='.urlencode($service['name'].".xml").'&amp;id='.$config['server_id'].'">Delete service data</a></div>';
+						echo '</div>';
+						echo '<div class="clear"></div>';
+					}
+					echo '
+			<div class="actions">
+				<a href="?delete_data=1&amp;id='.$config['server_id'].'">Delete all data for '.$config['name'].'</a>
+			</div>
+		</div>';
 				}
-				echo '
-		<div class="actions">
-			<a href="?delete_data=1&amp;id='.$config['server_id'].'">Delete all data for '.$config['name'].'</a>
-		</div>
-	</div>';
-			}
+		} else {
+			$log->logInfo("No log files found for " . $config['server_id'] . "server");
+		}
 		}
 
 	}
