@@ -32,6 +32,11 @@
  * @copyright Dan Schultzer
  */
 	$current_dirname = dirname(__FILE__)."/";
+ 	require_once('phar://'.$current_dirname.'/PhpConsole.phar'); // autoload will be initialized automatically
+ 	
+ 	$handler = PhpConsole\Handler::getInstance();
+	$handler->start();
+//	$handler->debug('called from handler debug', 'some.three.tags');
  	require_once($current_dirname."config.php");
 	require_once($current_dirname."monit-graph.class.php");
 	require_once($current_dirname."KLogger.php");
@@ -66,20 +71,26 @@
 	$output_head = ""; // Output for header
 	
 	/* Show individuel server stats */
-	if(isset($_GET['server_id']) && strlen($_GET['server_id'])>0){
-
-		/* Variables */
+	if(isset($_GET['server_id']) && strlen($_GET['server_id'])>0) {
 		$output_body = "";
-		$_SELECED = array();
-
+		$_SELECTED = array();
 
 		/* Chart Type */
-		if(isset($_GET['chart_type'])) $chart_type = $_GET['chart_type'];
-		else $chart_type = $default_chart_type;
+		if(isset($_GET['chart_type'])) {
+			$chart_type = $_GET['chart_type'];
+		} else {
+			$chart_type = $default_chart_type;
+		}
 	
-		if($chart_type=='AnnotatedTimeLine') $package = "annotatedtimeline";
-		elseif($chart_type=='Gauge') $package = "gauge";
-		else $package = "corechart";
+		if($chart_type=='AnnotatedTimeLine') {
+			$package = "annotatedtimeline";
+		} else {
+			if($chart_type=='Gauge') {
+				$package = "gauge";
+			} else {
+				$package = "corechart";
+			}
+		}
 		$_SELECTED[$chart_type]=' selected="selected"';
 		$output_head .= '
 		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
@@ -88,50 +99,56 @@
 			google.load("visualization", "1.1", {packages: ["'.$package.'"]});
 		</script>';
 	
-	
 		/* Time Range */
-		if(isset($_GET['time_range'])){
+		if(isset($_GET['time_range'])) {
 			$time_range = intVal($_GET['time_range']);
 			$_SELECTED[$time_range]=' selected="selected"';
-		}else{
+		} else {
 			$time_range = $default_time_range;
 			$_SELECTED[$time_range]=' selected="selected"';
 		}
 	
 	
 		/* Refresh data time */
-		if(isset($_GET['refresh_seconds'])) $refresh_seconds = intVal($_GET['refresh_seconds']);
-		else $refresh_seconds = $default_refresh_seconds;
+		if(isset($_GET['refresh_seconds'])) {
+			$refresh_seconds = intVal($_GET['refresh_seconds']);
+		} else {
+			$refresh_seconds = $default_refresh_seconds;
+		}
 		$refresh_miliseconds = intVal($refresh_seconds)*1000;
 	
-	
 		/* Specific services */
-		if(isset($_GET['specific_services'])) $specific_services = (string)$_GET['specific_services'];
-		else $specific_services = $default_specific_service;
+		if(isset($_GET['specific_services'])) {
+			$specific_services = (string)$_GET['specific_services'];
+		} else {
+			$specific_services = $default_specific_service;
+		}
 	
 		$dont_show_alerts = $default_dont_show_alerts;
 		/* If to show alerts */
-		if(isset($_GET['dont_show_alerts']) && $_GET['dont_show_alerts']=="on"){
+		if(isset($_GET['dont_show_alerts']) && $_GET['dont_show_alerts']=="on") {
 			$dont_show_alerts = "on";
-		}elseif(!isset($_GET['chart_type'])){
-			$dont_show_alerts = $default_dont_show_alerts;
+		}else {
+			if(!isset($_GET['chart_type'])) {
+				$dont_show_alerts = $default_dont_show_alerts;
+			}
 		}
-		if($dont_show_alerts=="on"){
+		
+		if($dont_show_alerts=="on") {
 			$_SELECTED['dont_show_alerts']=' checked="checked"';
 		}
-	
 	
 		/* Iterate all json files in data directory */
 		$i = 0;
 		$files = MonitGraph::getLogFilesForServerID($_GET['server_id'],$specific_services);
-		foreach($server_configs as $config){
-			if($config['server_id']==$_GET['server_id']){
+		foreach($server_configs as $config) {
+			if($config['server_id']==$_GET['server_id']) {
 				echo "<h1>".$config['name']." service logs</h1>";
 				break;
 			}
 		}
 		echo '<a href="?">Back to dashboard</a>';
-		foreach($files as $file){
+		foreach($files as $file) {
 			$filename = basename($file);
 			$short_filename = str_replace(".xml", "", $filename);
 	
@@ -143,53 +160,55 @@
 	
 			function drawVisualization$i() {
 				$.ajax({
-									type: "GET",
-									url: "getdata.php",
-									data: {
-										"file": "$file",
-										"time_range": "$time_range"
-									},
-									async: true,
-									cache: false,
-								}).done(function(data){
-									var evalledData = eval("("+data+")");
-									if (typeof evalledData != "object") return;
-									if('$chart_type'=='Gauge'){
-										evalledData.rows.splice(1,evalledData.rows.length);
-									}
-									if("on"=="$dont_show_alerts"){
-										if(evalledData["cols"][3]["label"]=="Alerts"){
-											for(i = 0; i < evalledData.rows.length; i++){
-												evalledData.rows[i].c[3].v=null;
-											}
-										}
-										if(typeof evalledData["cols"][4] != "undefined" && evalledData["cols"][4]["label"]=="Alerts"){
-											for(i = 0; i < evalledData.rows.length; i++){
-												evalledData.rows[i].c[4].v=null;
-											}
-										}
-									}
+						type: "GET",
+						url: "getdata.php",
+						data: {
+							"file": "$file",
+							"time_range": "$time_range"
+						},
+						async: true,
+						cache: false,
+					}).done(function(data){
+						var evalledData = eval("("+data+")");
+						if (typeof evalledData != "object") return;
+						if('$chart_type'=='Gauge') {
+							evalledData.rows.splice(1,evalledData.rows.length);
+						}
+						if("on"=="$dont_show_alerts") {
+							if(evalledData["cols"][3]["label"]=="Alerts") {
+								for(i = 0; i < evalledData.rows.length; i++) {
+									evalledData.rows[i].c[3].v=null;
+								}
+							}
+							if(typeof evalledData["cols"][4] != "undefined" && evalledData["cols"][4]["label"]=="Alerts") {
+								for(i = 0; i < evalledData.rows.length; i++) {
+									evalledData.rows[i].c[4].v=null;
+								}
+							}
+						}
 	
-									if(data$i==null){
-										data$i = new google.visualization.DataTable(evalledData);
-									}else{
-										data$i.removeRows(0,data$i.getNumberOfRows());
-										for(i = 0; i < evalledData.rows.length; i++){
-											data$i.addRow(evalledData.rows[i].c);
-										}
-									}
-									delete evalledData;
+						if(data$i==null) {
+							data$i = new google.visualization.DataTable(evalledData);
+						} else {
+							data$i.removeRows(0,data$i.getNumberOfRows());
+							for(i = 0; i < evalledData.rows.length; i++) {
+								data$i.addRow(evalledData.rows[i].c);
+							}
+						}
+						delete evalledData;
 	
-									if(chart$i==null) chart$i = new google.visualization.$chart_type(document.getElementById('chart_div$i'));
-									chart$i.draw(data$i, {
-															title : '$short_filename',
-															vAxis: {title: "Usage in %", minValue: 0},
-															hAxis: {title: "Time"}
-														});
-									if($refresh_seconds>0){
-										var timeout = setTimeout("drawVisualization$i()",$refresh_miliseconds);
-									}
-								});
+						if(chart$i==null) {
+							chart$i = new google.visualization.$chart_type(document.getElementById('chart_div$i'));
+						}
+						chart$i.draw(data$i, {
+												title : '$short_filename',
+												vAxis: {title: "Usage in %", minValue: 0},
+												hAxis: {title: "Time"}
+											});
+						if($refresh_seconds>0) {
+							var timeout = setTimeout("drawVisualization$i()",$refresh_miliseconds);
+						}
+					});
 			}
 			google.setOnLoadCallback(drawVisualization$i);
 		</script>
@@ -254,80 +273,121 @@ EOF;
 
 
 	/* Show dashboard */
-	}elseif(isset($_GET['delete_data']) && strlen($_GET['delete_data'])>0){
-		echo '<a href="?">Back to dashboard</a>';
-		echo '
-	<div class="server_box bordered_box">';
-		$name = "";
-		foreach($server_configs as $config){
-			if($config['server_id']==$_GET['id']){
-				$name = $config['name'];
-				break;
+	} else {
+		if(isset($_GET['delete_data']) && strlen($_GET['delete_data'])>0){
+			echo '<a href="?">Back to dashboard</a>';
+			echo '<div class="server_box bordered_box">';
+			$name = "";
+			foreach($server_configs as $config) {
+				if($config['server_id']==$_GET['id']) {
+					$name = $config['name'];
+					break;
+				}
 			}
-		}
-		if(isset($_POST['delete']) && $_POST['delete']=="true"){
-			if($_GET['delete_data']=="1") $filename = null;
-			else $filename = $_GET['delete_data'];
-			if(MonitGraph::deleteDataFiles($_GET['id'], $filename)) echo '<h1>All the files have been deleted successfully at '.$name.'</h1>';
-			else echo '<h1>Some errors happened in the deletion process';
-		}else{
-			if($_GET['delete_data']=="1") $txt = 'Are you sure to delete all files associated to the server '.$name.'?';
-			else $txt = 'Are you sure to delete all files associated to '.$_GET['delete_data'].' at server '.$name.'?';
-			echo '
-		<form action="?delete_data='.$_GET['delete_data'].'&amp;id='.$_GET['id'].'" method="post">
-			<input type="hidden" name="delete" value="true" />
-			'.$txt.'
-			<input type="submit" value="Delete" />
-		</form>';
-		}
-		echo '
-	</div>';
-	}else{
-		foreach($server_configs as $config){
-			$services = MonitGraph::getLastRecord($config['server_id']);
-			if($services)  {
-
+			if(isset($_POST['delete']) && $_POST['delete']=="true") {
+				if($_GET['delete_data']=="1") {
+					$filename = null;
+				} else {
+					$filename = $_GET['delete_data'];
+				}
+				if(MonitGraph::deleteDataFiles($_GET['id'], $filename)) {
+					echo '<h1>All the files have been deleted successfully at '.$name.'</h1>';
+				} else {
+					echo '<h1>Some errors happened in the deletion process';
+				}
+			} else {
+				if($_GET['delete_data']=="1") {
+					$txt = 'Are you sure to delete all files associated to the server '.$name.'?';
+				} else {
+					$txt = 'Are you sure to delete all files associated to '.$_GET['delete_data'].' at server '.$name.'?';
+				}
 				echo '
-		<div class="server_box bordered_box">
-			<a href="?server_id='.$config['server_id'].'"><h2 href="?server_id='.$config['server_id'].'">'.$config['name'].' status</h2></a>';
-				if(empty($services)){
-					echo "<span>No log files found</span>";
-				}else{
-					echo '<div class="service_header">';
-					echo "<div><strong>Service:</strong></div>";
-					echo "<div><strong>CPU:</strong></div>";
-					echo "<div><strong>Memory:</strong></div>";
-					echo "<div><strong>Swap:</strong></div>";
-					echo "<div><strong>Last check:</strong></div>";
-					echo '<div><strong>Actions</strong></div>';
-					echo '</div>';
-					echo '<div class="clear"></div>';
-					foreach($services as $service){
-						if($service['status']==0) $status_color = "00FF00";
-						else $status_color = "FF0000";
-						if($service['swap']!="") $service['swap'].="%";
-						else $service['swap']="-";
-						echo '<div class="service_row">';
-						echo '<div><span style="color:#'.$status_color.'">●</span> <a href="?server_id='.$config['server_id'].'&amp;specific_services='.urlencode($service['name']).'">'.$service['name']."</a></div>";
-						echo "<div>".$service['cpu']."%</div>";
-						echo "<div>".$service['memory']."%</div>";
-						echo "<div>".$service['swap']."</div>";
-						echo "<div>".date("H:i:s d-m-Y",$service['time'])."</div>";
-						echo '<div><a href="?delete_data='.urlencode($service['name'].".xml").'&amp;id='.$config['server_id'].'">Delete service data</a></div>';
+			<form action="?delete_data='.$_GET['delete_data'].'&amp;id='.$_GET['id'].'" method="post">
+				<input type="hidden" name="delete" value="true" />
+				'.$txt.'
+				<input type="submit" value="Delete" />
+			</form>';
+			}
+			echo '</div>';
+		} else {
+			foreach($server_configs as $config) {
+				$services = MonitGraph::getLastRecord($config['server_id']);
+				if($services) {
+					$config_name = $config['name'];
+					foreach($server_aliases as $alias) {
+						if (strcmp($alias['name'] ,$config_name) == 0) {
+							$config_name = $alias['alias'];
+							break;
+						}
+					}
+					// TODO : find the last record time for system_$config['name'] or $config['name']
+					// if too old more than 10 * poll value set this server in red
+					$lastSeen = MonitGraph::getLastSystemRecordTime($config['server_id'], $config['name']);
+					$system_down = false;
+					if (time() - $lastSeen > 10 * 240) {
+						$host_color = "FF0000";
+						$system_down = true;
+					} else {
+						$host_color = "000000";
+					}
+					
+					echo '
+						<div class="server_box bordered_box">
+							<a href="?server_id='.$config['server_id'].'"><h2  style="color:#'.$host_color.'" href="?server_id='.$config['server_id'].'">' . $config_name . ' status</h2></a>';
+					if(empty($services)) {
+						echo "<span>No log files found</span>";
+					} else {
+						echo '<div class="service_header">';
+						echo "<div><strong>Service:</strong></div>";
+						echo "<div><strong>CPU:</strong></div>";
+						echo "<div><strong>Memory:</strong></div>";
+						echo "<div><strong>Swap:</strong></div>";
+						echo "<div><strong>Last check:</strong></div>";
+						echo '<div><strong>Actions</strong></div>';
 						echo '</div>';
 						echo '<div class="clear"></div>';
+						foreach($services as $service) {
+							$service_bullet = '●';
+							$service_name = $service['name'];
+							if (strpos ($service_name , "system_") === 0) {
+								$service_name = $config_name;
+							}
+							if (((time() - $service['time']) > (10 * 240))) {
+								$status_color = "000000";
+								$service_bullet = '?';
+							} else {
+								if($service['status']==0 && $system_down == false) {
+									$status_color = "00FF00";
+								} else {
+									$status_color = "FF0000";
+								}
+							}
+							if($service['swap']!="") {
+								$service['swap'].="%";
+							} else {
+								$service['swap']="-";
+							}
+							echo '<div class="service_row">';
+							echo '<div><span style="color:#'.$status_color.'">' . $service_bullet .'</span> <a href="?server_id='.$config['server_id'].'&amp;specific_services='.urlencode($service['name']).'">'.$service_name."</a></div>";
+							echo "<div>".$service['cpu']."%</div>";
+							echo "<div>".$service['memory']."%</div>";
+							echo "<div>".$service['swap']."</div>";
+							echo "<div>".date("H:i:s d-m-Y",$service['time'])."</div>";
+							echo '<div><a href="?delete_data='.urlencode($service['name'].".xml").'&amp;id='.$config['server_id'].'">Delete service data</a></div>';
+							echo '</div>';
+							echo '<div class="clear"></div>';
+						}
+						echo '
+							<div class="actions">
+								<a href="?delete_data=1&amp;id='.$config['server_id'].'">Delete all data for '.$config_name.'</a>
+							</div>
+						</div>';
 					}
-					echo '
-			<div class="actions">
-				<a href="?delete_data=1&amp;id='.$config['server_id'].'">Delete all data for '.$config['name'].'</a>
-			</div>
-		</div>';
+				} else {
+					$log->logInfo("No log files found for " . $config['server_id'] . "server");
 				}
-		} else {
-			$log->logInfo("No log files found for " . $config['server_id'] . "server");
+			}
 		}
-		}
-
 	}
 
 	$content = ob_get_contents();	
@@ -344,10 +404,11 @@ EOF;
 	<script type="text/javascript">
 		function toggle_visibility(id) {
 			var e = document.getElementById(id);
-			if(e.style.display == "block")
+			if(e.style.display == "block") {
 				e.style.display = "none";
-			else
-			e.style.display = "block";
+			} else {
+				e.style.display = "block";
+			}
 		}
 	</script>
 <?php
@@ -355,7 +416,11 @@ EOF;
 ?>
 </head>	
 <body>
-	<div class="logo"><h1>Monit Graph</h1></div>
+	<div class="logo"><h1>Monit Graph</h1><h1>Configuration</h1></div>
+<?php
+	// TOTO : add admin entry here;
+?>
+	
 	<div class="clear"></div>
 <?php
 	echo $content;

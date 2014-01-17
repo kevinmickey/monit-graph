@@ -36,6 +36,17 @@ if (gethostname() == "debianServer") {
 } else {    
 	$dynamic = false;
 
+	$server_aliases = array(
+				array(
+					"name"	=>	"debianServer.mydomain.fr",
+					"alias"	=>	"debianServer"
+				),
+				array(
+					"name"	=>	"domo10.mydomain.fr",
+					"alias"	=>	"domo10"
+				)
+	);
+
 
 	/* Monit login information */
 	$server_configs = array(

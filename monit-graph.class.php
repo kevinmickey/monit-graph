@@ -598,7 +598,28 @@ require_once($current_dirname."KLogger.php");
 			}
 			return $return_array;
 		}
-		
+
+		public static function getLastSystemRecordTime($server_id, $server_name){
+			$files = MonitGraph::getLogFilesForServerID($server_id);
+			if(!$files) {
+				return false;
+			}
+
+			/* Check the directory for the Monit instance ID */
+			$return_array = array();
+			foreach($files as $file){
+				if(!file_exists($file) or !$xml=simplexml_load_string(file_get_contents($file))){
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $file could not be loaded!");
+					return false;
+				}
+				if (strpos ($xml['name'] , "system_") === 0 || strcmp($xml['name'],$server_name) === 0 ) {
+					return intVal($xml->record[0]['time']);
+				}
+			}
+			return -1;
+		}
+
+
 		
 		/**
 		 * Function to return XML of the server id 
