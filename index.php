@@ -70,6 +70,9 @@
 	
 	$output_head = ""; // Output for header
 	
+
+	if(isset($_GET['config'])){
+	} else
 	/* Show individuel server stats */
 	if(isset($_GET['server_id']) && strlen($_GET['server_id'])>0) {
 		$output_body = "";
@@ -416,7 +419,14 @@ EOF;
 ?>
 </head>	
 <body>
-	<div class="logo"><h1>Monit Graph</h1><h1>Configuration</h1></div>
+<?php
+	if(isset($_GET['config'])){
+		echo '<div class="config"><h1><a href="?">Back to dashboard</a></h1></div>';
+	} else {
+		echo '<div class="config"><h1><a href="?config">Configuration</a></h1></div>';
+	}
+?>
+	<div class="logo"><h1>Monit Graph</h1></div>
 <?php
 	// TOTO : add admin entry here;
 ?>
