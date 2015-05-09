@@ -274,7 +274,7 @@ require_once($current_dirname."KLogger.php");
 		 * Will write the XML history file for a specific service. Inputs simplexml object and service type
 		*/
 		public static function writeServiceHistoric($server_id, $xml, $type, $chunk_size = 0, $number_of_chunks = 0){
-			if($type=="3" || $type=="5"){ // Only services
+			if($type=="3" || $type=="5" || $type=="7"){ // Only services
 				$name = $xml->name;
 				if(!self::datapathWriteable()) exit("Cannot write in data path");
 
@@ -307,6 +307,8 @@ require_once($current_dirname."KLogger.php");
 
 					$swap = $dom->createElement("swap",$xml->system->swap->percent);
 					$new_service->appendChild($swap);
+				}elseif ($type=="7"){ // Program
+					$program_status = $xml->program->status;
 				}else{ // Process
 					$memory = $dom->createElement("memory",self::getMonitPercentage($xml->memory));
 					$new_service->appendChild($memory);
