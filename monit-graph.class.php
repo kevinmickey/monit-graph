@@ -130,8 +130,8 @@ require_once($current_dirname."KLogger.php");
 			$ch = curl_init($url);
 
 			if($monit_url_ssl){
-				curl_setopt($ch, CURLOPT_SSLVERSION, 3); 
-				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+				//curl_setopt($ch, CURLOPT_SSLVERSION, 3); 
+				//curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
 				if($verify_ssl) curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 				else curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 			}
