@@ -1,5 +1,15 @@
 #Monit Graph
 
+####Enhanced version
+* can use the embeded monit function to collect data
+* logging to file added
+* bug fixes
+* support new xml format of newer monit versions
+
+## support monit data collect
+* set mmonit http://login:password@monit-graph-webserver/monit-graph/collect.php
+* for newer version of monit set this line too just after the mmonit one: and register without credentials
+
 Monit Graph is a logging and graphing tool for Monit written in PHP5. It can manage big amounts of data, and will keep a history of Monit statuses.
 
 ![Monit Graph Overview Panel](http://dreamconception.com/wp-content/uploads/2012/06/monit-graph-overview1.png)

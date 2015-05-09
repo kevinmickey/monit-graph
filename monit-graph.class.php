@@ -31,6 +31,8 @@
  * @author Dan Schultzer <http://abcel-online.com/>
  * @copyright Dan Schultzer
  */
+$current_dirname = dirname(__FILE__)."/";
+require_once($current_dirname."KLogger.php");
 
 	/**
 	 * Monit Graph class
@@ -61,6 +63,10 @@
 		/**
 		 * Testing the server configs
 		*/
+		private static $log = 0;
+		public static function setLog($log){
+			self::$log = $log;
+		}
 		public static function checkConfig($server_configs){
 			$id = array();
 			$url = array();
@@ -69,11 +75,11 @@
 				$url[] = $config['config']['url'];
 			}
 			if(count($id) != count(array_unique($id))){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ID's in server config needs to be unique");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ID's in server config needs to be unique");
 				return false;
 			}
 			if(count($url) != count(array_unique($url))){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": You should not use the same URL for individual servers");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": You should not use the same URL for individual servers");
 				return false;
 			}
 			return true;
@@ -95,7 +101,7 @@
 									$number_of_chunks = 0){
 			$found_settings = $ssl_on = $http_login = false;
 
-			if(!($server_id = self::isServerIDValid($server_id))) exit("Server ID invalid");
+//			if(!($server_id = self::isServerIDValid($server_id))) exit("Server ID invalid");
 
 			$xml=self::getSettings($server_id);
 			if($xml!=false) $found_settings = true; // Do we already have the settings file saved or is this fresh version?
@@ -105,7 +111,7 @@
 			if($found_settings){
 				$time_difference = intval($xml->incarnation)+intval($xml->uptime)+intval($xml->poll)-20-time(); // 20 seconds connection time
 				if($time_difference>0){
-					error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Poll time has not been reached (missing $time_difference seconds), waiting for one more cycle");
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Poll time has not been reached (missing $time_difference seconds), waiting for one more cycle");
 					return false;
 				}
 			}
@@ -149,25 +155,52 @@
 			$curl_error = curl_error($ch);
 
 			curl_close($ch);
-
 			if($curl_errno > 0){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": cURL Error ($curl_errno): $curl_error");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": cURL Error ($curl_errno): $curl_error");
 			}else{
-				libxml_use_internal_errors(true);
-				if($xml = simplexml_load_string($data)){
-					if(isset($xml->server)){
-						if(self::putSettings($server_id, $xml->server)){
-							foreach($xml->service as $service){
-								self::writeServiceHistoric($server_id, $service, $service["type"], $chunk_size, $number_of_chunks);
+				self::parseXmlData($server_id, $data, $chunk_size, $number_of_chunks);
+			}
+		}
+
+    	/**
+		 * Parse the monit xml data
+		 return server_id
+		*/
+		public static function parseXmlData($server_id, $data, $chunk_size, $number_of_chunks){
+			libxml_use_internal_errors(true);
+			self::error_log('parseXmlData');
+
+			if($xml = simplexml_load_string($data)){
+				if(isset($xml->server)){
+					if ($server_id == "") // get the server name from xml
+						$server_id = $xml->server->localhostname;
+					if(self::putSettings($server_id, $xml->server)){
+						$count = 0;
+						foreach($xml->service as $service){
+							self::writeServiceHistoric($server_id, $service, $service["type"], $chunk_size, $number_of_chunks);
+							$count++;
+						}
+						if ($count == 0) {// no service? try the new version
+							foreach($xml->services->service as $service){
+								self::writeServiceHistoric2($server_id, $service, $service->type, $chunk_size, $number_of_chunks);
 							}
 						}
 					}
-				}else{
-					foreach (libxml_get_errors() as $error) {
-						error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$error->message);
-					}
+				} else {
+					self::error_log('parseXmlData : no xml->server');
 				}
 			}
+			else {
+				foreach (libxml_get_errors() as $error) {
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$error->message);
+				}
+			}
+			return $server_id;
+		}
+		public static function error_log($str){
+			if (self::$log)
+				self::$log->logInfo($str);
+			error_log($str);
 		}
 
 		/**
@@ -186,10 +219,13 @@
 		 * Save the settings file from simplexml object to DOM
 		*/
 		public static function putSettings($server_id, $xml){
-			if(!self::settingsWriteable($server_id)) exit("Cannot write settings");
+			if(!self::settingsWriteable($server_id)) {
+				self::error_log("Cannot write settings");
+				exit("Cannot write settings");
+			}
 			$filename = dirname(__FILE__)."/".self::data_path.$server_id."-".self::server_xml_file_name;
 			if(!$handle=fopen($filename, 'w')){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot open $filename");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot open $filename");
 				exit("Cannot open $filename");
 			}
 			$dom_xml = dom_import_simplexml($xml);
@@ -201,7 +237,7 @@
 			$dom->formatOutput = false;
 			if (fwrite($handle, $dom->saveXML()) === FALSE) {
 				fclose($handle);
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot write to $filename");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot write to $filename");
 				exit("Cannot write to $filename");
 			}
 			fclose($handle);
@@ -215,7 +251,7 @@
 		public static function datapathWriteable(){
 			$dirpath = dirname(__FILE__)."/".self::data_path;
 			if(!is_writeable($dirpath)){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$dirpath." is not write-able!");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$dirpath." is not write-able!");
 				return false;
 			}
 			return true;
@@ -228,7 +264,7 @@
 			if(!self::datapathWriteable()) return false;
 			$filename = dirname(__FILE__)."/".self::data_path.$server_id."-".self::server_xml_file_name;
 			if(file_exists($filename) && !is_writeable($filename)){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$filename." is not write-able!");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$filename." is not write-able!");
 				return false;
 			}
 			return true;
@@ -238,8 +274,110 @@
 		 * Will write the XML history file for a specific service. Inputs simplexml object and service type
 		*/
 		public static function writeServiceHistoric($server_id, $xml, $type, $chunk_size = 0, $number_of_chunks = 0){
-			if($type=="3" || $type=="5"){ // Only services
+			if($type=="3" || $type=="5" || $type=="7"){ // Only services
 				$name = $xml->name;
+				if(!self::datapathWriteable()) exit("Cannot write in data path");
+
+				$dom = new DOMDocument('1.0');
+				$service = $dom->createElement("records");
+				$attr_name=$dom->createAttribute("name");
+				$attr_name->value = $name;
+				$service->appendChild($attr_name);
+				$dom->appendChild($service);
+
+				$attr_type=$dom->createAttribute("type");
+				$attr_type->value = $type;
+				$service->appendChild($attr_type);
+
+				$new_service = $dom->createElement("record");
+				$time=$dom->createAttribute("time");
+				$time->value = $xml->collected_sec;
+				$new_service->appendChild($time);
+
+				if($type=="5"){ // System
+					$memory = $dom->createElement("memory",$xml->system->memory->percent);
+					$new_service->appendChild($memory);
+
+					$cpu_user = (float) $xml->system->cpu->user;
+					$cpu_system = (float) $xml->system->cpu->system;
+					$cpu_wait = (float) $xml->system->cpu->wait;
+					$total_cpu = $cpu_user + $cpu_system + $cpu_wait;
+					$cpu = $dom->createElement("cpu",$total_cpu);
+					$new_service->appendChild($cpu);
+
+					$swap = $dom->createElement("swap",$xml->system->swap->percent);
+					$new_service->appendChild($swap);
+				}elseif ($type=="7"){ // Program
+					$program_status = $xml->program->status;
+				}else{ // Process
+					$memory = $dom->createElement("memory",self::getMonitPercentage($xml->memory));
+					$new_service->appendChild($memory);
+
+					$cpu = $dom->createElement("cpu",self::getMonitPercentage($xml->cpu));
+					$new_service->appendChild($cpu);
+
+					$pid = $dom->createElement("pid",$xml->pid);
+					$new_service->appendChild($pid);
+
+					$uptime = $dom->createElement("uptime",$xml->uptime);
+					$new_service->appendChild($uptime);
+
+					$children = $dom->createElement("children",$xml->children);
+					$new_service->appendChild($children);
+				}
+
+				$status = $dom->createElement("status",$xml->status);
+				$new_service->appendChild($status);
+
+				$alert = $dom->createElement("alert",intVal($xml->status>0));
+				$new_service->appendChild($alert);
+
+				$monitor = $dom->createElement("monitor",$xml->monitor);
+				$new_service->appendChild($monitor);
+
+				$service->appendChild($new_service);
+
+				$dom->validate();
+				$dir = dirname(__FILE__)."/".self::data_path."/".$server_id;
+				if(!is_dir($dir))
+					if(!mkdir($dir)) exit("Could not create data path $dir");
+
+				$filename = $dir."/".$name.".xml";
+				if(file_exists($filename)){
+
+					if(!self::rotateFiles($filename,$chunk_size,$number_of_chunks)) exit("Fatal error, could not rotate file $filename");
+
+					/* Load in the previous xml */
+					if(file_exists($filename) && $existing_xml=simplexml_load_string(file_get_contents($filename))){
+						$dom_xml = dom_import_simplexml($existing_xml);
+						foreach($dom_xml->childNodes as $node){
+							$node = $dom->importNode($node, true);
+							$node = $service->appendChild($node);
+						}
+					}
+				}
+				if(!$handle=fopen($filename, 'w')){
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot open $filename");
+					exit("Cannot open $filename");
+				}
+
+				$dom->preserveWhiteSpace = false;
+				$dom->formatOutput = false;
+				if (fwrite($handle, $dom->saveXML()) === FALSE) {
+					fclose($handle);
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot write to $filename");
+					exit("Cannot write to $filename");
+				}
+				fclose($handle);
+			}
+			return true;
+		}
+		/**
+		 * Will write the XML history file for a specific service. Inputs simplexml object and service type
+		*/
+		public static function writeServiceHistoric2($server_id, $xml, $type, $chunk_size = 0, $number_of_chunks = 0){
+			if($type=="3" || $type=="5"){ // Only services
+				$name = $xml['name'];
 				if(!self::datapathWriteable()) exit("Cannot write in data path");
 
 				$dom = new DOMDocument('1.0');
@@ -319,7 +457,7 @@
 					}
 				}
 				if(!$handle=fopen($filename, 'w')){
-					error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot open $filename");
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot open $filename");
 					exit("Cannot open $filename");
 				}
 
@@ -327,20 +465,19 @@
 				$dom->formatOutput = false;
 				if (fwrite($handle, $dom->saveXML()) === FALSE) {
 					fclose($handle);
-					error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot write to $filename");
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Cannot write to $filename");
 					exit("Cannot write to $filename");
 				}
 				fclose($handle);
 			}
 			return true;
 		}
-
 		/**
 		 * Will return a Google Graph JSON string or false
 		*/
 		public static function returnGoogleGraphJSON($filename, $time_range, $limit_number_of_items = 0){
 			if(!file_exists($filename) or !$xml=simplexml_load_string(file_get_contents($filename))){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $filename could not be found!");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $filename could not be found!");
 				return false;
 			}
 
@@ -394,7 +531,7 @@
 
 					/* Just checking if we reach memory limit and stop when that happens */
 					if((memory_get_usage()/$allowed_memory)>0.9){
-						error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Memory usage is using over 90% (of $allowed_memory) with currently ".count($array["rows"])." rows (last record with date of ".date("Y-m-d H:i:s P",intVal($record['time']))."). Please increase allowed memory use if you wish parse more data.");
+						self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Memory usage is using over 90% (of $allowed_memory) with currently ".count($array["rows"])." rows (last record with date of ".date("Y-m-d H:i:s P",intVal($record['time']))."). Please increase allowed memory use if you wish parse more data.");
 						$run_while = false;
 						break;
 					}
@@ -406,7 +543,7 @@
 					$xml = null;
 					unset($xml);
 					if(!$xml=simplexml_load_string(file_get_contents($next_file))){
-						error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$next_file." could not be opened");
+						self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$next_file." could not be opened");
 						break;
 					}
 				}else{
@@ -442,13 +579,15 @@
 		*/
 		public static function getLastRecord($server_id){
 			$files = MonitGraph::getLogFilesForServerID($server_id);
-			if(!$files) return false;
+			if(!$files) {
+				return false;
+			}
 
 			/* Check the directory for the Monit instance ID */
 			$return_array = array();
 			foreach($files as $file){
 				if(!file_exists($file) or !$xml=simplexml_load_string(file_get_contents($file))){
-					error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $filename could not be loaded!");
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $file could not be loaded!");
 					return false;
 				}
 				$return_array[]=array(
@@ -461,7 +600,28 @@
 			}
 			return $return_array;
 		}
-		
+
+		public static function getLastSystemRecordTime($server_id, $server_name){
+			$files = MonitGraph::getLogFilesForServerID($server_id);
+			if(!$files) {
+				return false;
+			}
+
+			/* Check the directory for the Monit instance ID */
+			$return_array = array();
+			foreach($files as $file){
+				if(!file_exists($file) or !$xml=simplexml_load_string(file_get_contents($file))){
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $file could not be loaded!");
+					return false;
+				}
+				if (strpos ($xml['name'] , "system_") === 0 || strcmp($xml['name'],$server_name) === 0 ) {
+					return intVal($xml->record[0]['time']);
+				}
+			}
+			return -1;
+		}
+
+
 		
 		/**
 		 * Function to return XML of the server id 
@@ -470,7 +630,7 @@
 			/* First retrieve the server configuration */
 			$server_file = "data/".$server_id."-server.xml";
 			if(!file_exists($server_file) or !$server_xml=simplexml_load_string(file_get_contents($server_file))){
-				error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $server_file could not be loaded!");
+				self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": $server_file could not be loaded!");
 				return false;
 			}
 			return $server_xml;
@@ -499,28 +659,28 @@
 				$dirname = "data/".$server_id."/";
 				foreach(glob($dirname."*") as $file){
 					if(!unlink($file)){
-						error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $file");
+						self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $file");
 						return false;
 					}
 				}
 
 				// Now the data directory itself
 				if(!unlink($dirname)){
-					error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $dirname");
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $dirname");
 					return false;
 				}
 
 				// Now the server file
 				$server_file = "data/".$server_id."-server.xml";
 				if(!unlink($server_file)){
-					error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $server_file");
+					self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $server_file");
 					return false;
 				}
 			}else{
 				// Only delete specific data file
 				foreach(glob("data/".$server_id."/".$xml_file_name."*") as $file){
 					if(!unlink($file)){
-						error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $file");
+						self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Could not delete $file");
 						return false;
 					}
 				}
@@ -543,19 +703,19 @@
 						$number = intVal($number)+1; // The new number to be used
 						if($limit_of_chunks==0 || $number<$limit_of_chunks){ // Rotate chunk
 							if(!rename($files[$i],$filename.".".$number)){
-								error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$files[$i]." could not be rename to ".$filename.".".$number."");
+								self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$files[$i]." could not be rename to ".$filename.".".$number."");
 								return false;
 							}
 						}else{ // If this chunk will be too many for defined, delete it
 							if(!unlink($files[$i])){
-								error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": could not unlink ".$files[$i]."");
+								self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": could not unlink ".$files[$i]."");
 								return false;
 							}
 						}
 					}
 					// Finally rename the current head
 					if(!rename($filename,$filename.".0")){
-						error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$filename." could not be rename to ".$filename.".0");
+						self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": ".$filename." could not be rename to ".$filename.".0");
 						return false;
 					}
 				}
@@ -601,7 +761,7 @@
 		*/
 		public static function isServerIDValid($server_id){
 			if(strlen($server_id)>0 && is_int($server_id)) return intVal($server_id);
-			error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Server ID is not valid $server_id!");
+			self::error_log("[".self::identifier."] ".__FILE__." line ".__LINE__.": Server ID is not valid $server_id!");
 			return false;
 		}
 
