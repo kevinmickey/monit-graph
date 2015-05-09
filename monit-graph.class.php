@@ -308,7 +308,8 @@ require_once($current_dirname."KLogger.php");
 					$swap = $dom->createElement("swap",$xml->system->swap->percent);
 					$new_service->appendChild($swap);
 				}elseif ($type=="7"){ // Program
-					$program_status = $xml->program->status;
+					$program_status = $dom->createElement("program_status",$xml->program->status);
+					$new_service->appendChild($program_status);
 				}else{ // Process
 					$memory = $dom->createElement("memory",self::getMonitPercentage($xml->memory));
 					$new_service->appendChild($memory);
@@ -490,6 +491,12 @@ require_once($current_dirname."KLogger.php");
 								array("label"=>"Swap","type"=>"number"),
 								array("label"=>"Alerts","type"=>"number")
 							);
+			}elseif($xml["type"]=="7"){
+				$array["cols"]=array(
+								array("label"=>"Time","type"=>"datetime"),
+								array("label"=>"Status","type"=>"number"),
+								array("label"=>"Alerts","type"=>"number")
+							);
 			}else{
 				$array["cols"]=array(
 								array("label"=>"Time","type"=>"datetime"),
@@ -518,6 +525,12 @@ require_once($current_dirname."KLogger.php");
 								array("v"=>(float)$record->cpu),
 								array("v"=>(float)$record->memory),
 								array("v"=>(float)$record->swap),
+								array("v"=>(float)$record->alert*100)
+							);
+					}elseif($xml["type"]=="7"){
+						$array["rows"][]["c"]=array(
+								array("v"=>"%%new Date(".(intVal($record['time'])*1000).")%%"),
+								array("v"=>(float)$record->program_status),
 								array("v"=>(float)$record->alert*100)
 							);
 					}else{
