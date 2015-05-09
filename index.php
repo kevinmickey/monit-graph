@@ -178,14 +178,11 @@
 							evalledData.rows.splice(1,evalledData.rows.length);
 						}
 						if("on"=="$dont_show_alerts") {
-							if(evalledData["cols"][3]["label"]=="Alerts") {
-								for(i = 0; i < evalledData.rows.length; i++) {
-									evalledData.rows[i].c[3].v=null;
-								}
-							}
-							if(typeof evalledData["cols"][4] != "undefined" && evalledData["cols"][4]["label"]=="Alerts") {
-								for(i = 0; i < evalledData.rows.length; i++) {
-									evalledData.rows[i].c[4].v=null;
+							for(j = 0; j < evalledData.cols.length; j++) {
+								if(evalledData["cols"][j]["label"]=="Alerts") {
+									for(i = 0; i < evalledData.rows.length; i++) {
+										evalledData.rows[i].c[j].v=null;
+									}
 								}
 							}
 						}
